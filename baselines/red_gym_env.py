@@ -1,10 +1,11 @@
 import random
 import sys
-import uuid 
-import os
+import uuid
 from math import floor, sqrt
 import json
 from pathlib import Path
+
+from typing import Optional
 
 import numpy as np
 from einops import rearrange
@@ -49,6 +50,8 @@ class RedGymEnv(Env):
         self.all_runs = []
 
         self.random = random.Random()
+        self.full_frame_writer: Optional[media.VideoWriter] = None
+        self.model_frame_writer: Optional[media.VideoWriter] = None
 
         # Set this in SOME subclasses
         self.metadata = {"render.modes": []}
@@ -125,6 +128,10 @@ class RedGymEnv(Env):
         self.agent_stats = []
         
         if self.save_video:
+            if self.full_frame_writer:
+                self.full_frame_writer.close()
+            if self.model_frame_writer:
+                self.model_frame_writer.close()
             base_dir = self.s_path / Path('rollouts')
             base_dir.mkdir(exist_ok=True)
             full_name = Path(f'full_reset_{self.reset_count}_id{self.instance_id}').with_suffix('.mp4')
@@ -290,7 +297,7 @@ class RedGymEnv(Env):
         new_prog = self.group_rewards()
         new_total = sum([val for _, val in self.progress_reward.items()]) #sqrt(self.explore_reward * self.progress_reward)
         new_step = new_total - self.total_reward
-        if new_step < 0 and self.read_hp_fraction() > 0:
+        if new_step < -.001 and self.read_hp_fraction() > 0:
             #print(f'\n\nreward went down! {self.progress_reward}\n\n')
             self.save_screenshot('neg_reward')
     
@@ -354,13 +361,12 @@ class RedGymEnv(Env):
         return done
 
     def save_and_print_info(self, done, obs_memory):
-        if self.print_rewards:
+        if self.print_rewards and self.step_count % 64 == 0:
             prog_string = f'step: {self.step_count:6d}'
             for key, val in self.progress_reward.items():
                 prog_string += f' {key}: {val:5.2f}'
             prog_string += f' sum: {self.total_reward:5.2f}'
-            if self.step_count % 128 == 0:
-                print(f'\r{prog_string}', end='\n', flush=True)
+            print(f'\r{prog_string}', end='', flush=True)
         
         if self.step_count % 50 == 0:
             plt.imsave(
