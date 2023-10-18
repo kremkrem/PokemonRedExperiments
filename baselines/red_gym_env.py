@@ -219,7 +219,7 @@ class RedGymEnv(Env):
 
         self.step_count += 1
 
-        return obs_memory, new_reward*0.1, False, step_limit_reached, {}
+        return obs_memory, new_reward*0.1, self.total_reward < -1, step_limit_reached, {}
 
     def run_action_on_emulator(self, action):
         # press button then release after some steps
@@ -473,7 +473,8 @@ class RedGymEnv(Env):
             #'op_poke': self.max_opponent_poke * 800,
             #'money': money * 3,
             #'seen_poke': seen_poke_count * 400,
-            'explore': self.get_knn_reward()
+            'explore': self.get_knn_reward(),
+            'steps': self.step_count * -0.0005
         }
         
         return state_scores

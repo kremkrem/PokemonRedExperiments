@@ -35,11 +35,11 @@ if __name__ == '__main__':
     env_config = {
                 'headless': True, 'save_final_state': True, 'early_stop': False,
                 'action_freq': 24, 'init_state': '../has_pokedex_nballs.state', 'max_steps': ep_length, 
-                'print_rewards': True, 'save_video': False, 'fast_video': True, 'move_list_zoom': True,
-                'session_path': sess_path, 'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0
+                'print_rewards': True, 'save_video': True, 'fast_video': True, 'move_list_zoom': True,
+                'session_path': Path(sess_path), 'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0
             }
     
-    env_config = change_env(env_config, args)
+    #env_config = change_env(env_config, args)
     
     num_cpu = 4 #44 #64 #46  # Also sets the number of episodes per training iteration
     env = SubprocVecEnv([make_env(i, env_config) for i in range(num_cpu)])
