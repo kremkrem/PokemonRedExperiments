@@ -29,13 +29,14 @@ if __name__ == '__main__':
 
     ep_length = 2048 * 8
     sess_path = f'session_{str(uuid.uuid4())[:8]}'
+    print("Starting session ", sess_path)
     args = get_args('run_baseline_parallel.py', ep_length=ep_length, sess_path=sess_path)
 
     env_config = {
                 'headless': True, 'save_final_state': True, 'early_stop': False,
                 'action_freq': 24, 'init_state': '../has_pokedex_nballs.state', 'max_steps': ep_length, 
-                'print_rewards': True, 'save_video': False, 'fast_video': True, 'session_path': sess_path,
-                'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0
+                'print_rewards': True, 'save_video': False, 'fast_video': True, 'move_list_zoom': True,
+                'session_path': sess_path, 'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0
             }
     
     env_config = change_env(env_config, args)
@@ -60,6 +61,7 @@ if __name__ == '__main__':
         model.rollout_buffer.n_envs = num_cpu
         model.rollout_buffer.reset()
     else:
+        print('\nNo checkpoint found, creating new model')
         model = PPO('CnnPolicy', env, verbose=1, n_steps=ep_length, batch_size=512, n_epochs=1, gamma=0.999)
     
     for i in range(learn_steps):

@@ -37,6 +37,7 @@ class RedGymEnv(Env):
         self.early_stopping = config['early_stop']
         self.save_video = config['save_video']
         self.fast_video = config['fast_video']
+        self.move_list_zoom = config['move_list_zoom'] if 'move_list_zoom' in config else False
         self.video_interval = 256 * self.act_freq
         self.downsample_factor = 2
         self.frame_stacks = 3
@@ -78,7 +79,8 @@ class RedGymEnv(Env):
         self.memory_height = 8
         self.col_steps = 16
         self.output_full = (
-            self.output_shape[0] * self.frame_stacks + 2 * (self.mem_padding + self.memory_height),
+            self.output_shape[0] * (self.frame_stacks + (1 if self.move_list_zoom else 0)) + 2 * (
+                        self.mem_padding + self.memory_height),
                             self.output_shape[1],
                             self.output_shape[2]
         )
@@ -153,6 +155,7 @@ class RedGymEnv(Env):
     def render(self, reduce_res=True, add_memory=True, update_mem=True):
         game_pixels_render = self.screen.screen_ndarray() # (144, 160, 3)
         if reduce_res:
+            text_pixels_render = (255*resize(game_pixels_render[-40:-8, 40:144, :], self.output_shape)).astype(np.uint8)
             game_pixels_render = (255*resize(game_pixels_render, self.output_shape)).astype(np.uint8)
             if update_mem:
                 self.recent_frames[0] = game_pixels_render
@@ -160,15 +163,27 @@ class RedGymEnv(Env):
                 pad = np.zeros(
                     shape=(self.mem_padding, self.output_shape[1], 3), 
                     dtype=np.uint8)
-                game_pixels_render = np.concatenate(
-                    (
-                        self.create_exploration_memory(), 
-                        pad,
-                        self.create_recent_memory(),
-                        pad,
-                        rearrange(self.recent_frames, 'f h w c -> (f h) w c')
-                    ),
-                    axis=0)
+                if self.move_list_zoom:
+                    game_pixels_render = np.concatenate(
+                        (
+                            self.create_exploration_memory(),
+                            pad,
+                            self.create_recent_memory(),
+                            pad,
+                            text_pixels_render,
+                            rearrange(self.recent_frames, 'f h w c -> (f h) w c')
+                        ),
+                        axis=0)
+                else:
+                    game_pixels_render = np.concatenate(
+                        (
+                            self.create_exploration_memory(),
+                            pad,
+                            self.create_recent_memory(),
+                            pad,
+                            rearrange(self.recent_frames, 'f h w c -> (f h) w c')
+                        ),
+                        axis=0)
         return game_pixels_render
     
     def step(self, action):
