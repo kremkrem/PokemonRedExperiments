@@ -1,4 +1,4 @@
-
+import random
 import sys
 import uuid 
 import os
@@ -33,6 +33,7 @@ class RedGymEnv(Env):
         self.num_elements = 20000 # max
         self.init_state = config['init_state']
         self.act_freq = config['action_freq']
+        self.act_random_offset = config['action_freq_random_offset'] if 'action_freq_random_offset' in config else 0
         self.max_steps = config['max_steps']
         self.early_stopping = config['early_stop']
         self.save_video = config['save_video']
@@ -46,6 +47,8 @@ class RedGymEnv(Env):
         self.instance_id = str(uuid.uuid4())[:8] if 'instance_id' not in config else config['instance_id']
         self.s_path.mkdir(exist_ok=True)
         self.all_runs = []
+
+        self.random = random.Random()
 
         # Set this in SOME subclasses
         self.metadata = {"render.modes": []}
@@ -224,7 +227,7 @@ class RedGymEnv(Env):
     def run_action_on_emulator(self, action):
         # press button then release after some steps
         self.pyboy.send_input(self.valid_actions[action])
-        for i in range(self.act_freq):
+        for i in range(self.act_freq + self.random.randint(0, self.act_random_offset)):
             # release action, so they are stateless
             if i == 8:
                 if action < 4:
@@ -356,7 +359,8 @@ class RedGymEnv(Env):
             for key, val in self.progress_reward.items():
                 prog_string += f' {key}: {val:5.2f}'
             prog_string += f' sum: {self.total_reward:5.2f}'
-            print(f'\r{prog_string}', end='', flush=True)
+            if self.step_count % 128 == 0:
+                print(f'\r{prog_string}', end='\n', flush=True)
         
         if self.step_count % 50 == 0:
             plt.imsave(

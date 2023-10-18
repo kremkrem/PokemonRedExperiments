@@ -34,9 +34,10 @@ if __name__ == '__main__':
 
     env_config = {
                 'headless': True, 'save_final_state': True, 'early_stop': False,
-                'action_freq': 24, 'init_state': '../has_pokedex_nballs.state', 'max_steps': ep_length, 
-                'print_rewards': True, 'save_video': True, 'fast_video': True, 'move_list_zoom': True,
-                'session_path': Path(sess_path), 'gb_path': '../PokemonRed.gb', 'debug': False, 'sim_frame_dist': 2_000_000.0
+                'action_freq': 24, 'action_freq_random_offset': 1, 'init_state': '../has_pokedex_nballs.state',
+                'max_steps': ep_length, 'print_rewards': True, 'save_video': True, 'fast_video': True,
+                'move_list_zoom': True, 'session_path': Path(sess_path), 'gb_path': '../PokemonRed.gb', 'debug': False,
+                'sim_frame_dist': 2_000_000.0
             }
     
     #env_config = change_env(env_config, args)
