@@ -7,3 +7,5 @@ rollouts
 raw_documentation
 *.pem
 _autoplay.mp4
+.idea/**/*
+venv/**/*
