@@ -21,7 +21,7 @@ def get_args(usage_string=None, ep_length=None, sess_path=None, headless=True):
     parser.add_argument('--max_steps', type=int, default=ep_length, help='Maximum number of steps in the environment')
     parser.add_argument('--print_rewards', type=bool, default=True, help='Whether to print rewards')
     parser.add_argument('--save_video', type=bool, default=True, help='Whether to save a video of the environment')
-    parser.add_argument('--fast_video', type=bool, default=False, help='Whether to save a fast video of the environment')
+    parser.add_argument('--fast_video', type=bool, default=True, help='Whether to save a fast video of the environment')
     parser.add_argument('--session_path', type=str, default=sess_path, help='Path to the session')
     parser.add_argument('--gb_path', type=str, default='../PokemonRed.gb', help='Path to the gameboy ROM')
     parser.add_argument('--debug', type=bool, default=False, help='Whether to run the environment in debug mode')
