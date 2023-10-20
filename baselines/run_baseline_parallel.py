@@ -1,4 +1,5 @@
 from os.path import exists
+from typing import Optional
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -8,6 +9,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from argparse_pokemon import *
 from custom_networks import WorseNatureCNN, linear_schedule
 from red_gym_env import RedGymEnv
+from torch.nn.parameter import Parameter
 
 
 def make_env(rank, env_conf, seed=0):
@@ -28,6 +30,13 @@ def make_env(rank, env_conf, seed=0):
     return _init
 
 
+def multiply(l: Parameter):
+    res = 1
+    for d in l.size():
+        res *= d
+    return res
+
+
 if __name__ == '__main__':
 
     ep_length = 2048 * 8
@@ -42,7 +51,7 @@ if __name__ == '__main__':
         'save_final_state': True,
         'early_stop': False,
         'action_freq': 24,
-        'action_freq_random_offset': 1,
+        #'action_freq_random_offset': 1,
         'init_state': '../has_pokedex_nballs.state',
         'max_steps': ep_length,
         'print_rewards': True,
@@ -71,8 +80,10 @@ if __name__ == '__main__':
     #env_checker.check_env(env)
     learn_steps = 100
     #file_name = 'session_e41c9eff/poke_38207488_steps'  #'session_e41c9eff/poke_250871808_steps'
+    #file_name = 'session_4da05e87_main_good/poke_439746560_steps'
     file_name = 'bogus'
 
+    model: Optional[PPO] = None
     #'session_bfdca25a/poke_42532864_steps' #'session_d3033abb/poke_47579136_steps' #'session_a17cc1f5/poke_33546240_steps' #'session_e4bdca71/poke_8945664_steps' #'session_eb21989e/poke_40255488_steps' #'session_80f70ab4/poke_58982400_steps'
     if exists(file_name + '.zip'):
         print('\nloading checkpoint')
@@ -98,6 +109,8 @@ if __name__ == '__main__':
                     })
 
     print(model.policy)
+    print("Total no. params:")
+    print(sum([multiply(parameter) for parameter in model.policy.parameters()]))
 
     for i in range(learn_steps):
         model.learn(total_timesteps=(ep_length) * num_cpu * 1000,
