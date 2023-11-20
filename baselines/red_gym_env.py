@@ -580,6 +580,7 @@ class StackedRedGymEnv(RedGymEnv):
         self.knn_index_shape = (36, 40)
         self.vec_dim = np.prod(self.knn_index_shape)
         self.observation_space = spaces.Box(low=0, high=255, shape=self.output_full, dtype=np.uint8)
+        self.similar_frame_dist = 0.007 * self.vec_dim
         self.reset()
 
     def render(self, reduce_res=True, update_mem=True):
