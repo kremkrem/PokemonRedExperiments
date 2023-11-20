@@ -51,12 +51,13 @@ if __name__ == '__main__':
         'save_final_state': True,
         'early_stop': False,
         'action_freq': 24,
-        #'action_freq_random_offset': 1,
+        'action_freq_random_offset': 1,
         'init_state': '../has_pokedex_nballs.state',
         'max_steps': ep_length,
         'print_rewards': True,
         'save_video': True,
         'fast_video': True,
+        'full_video': False,
         'move_list_zoom': False,
         'session_path': Path(sess_path),
         'gb_path': '../PokemonRed.gb',
@@ -81,7 +82,7 @@ if __name__ == '__main__':
     learn_steps = 100
     #file_name = 'session_e41c9eff/poke_38207488_steps'  #'session_e41c9eff/poke_250871808_steps'
     #file_name = 'session_4da05e87_main_good/poke_439746560_steps'
-    file_name = 'bogus'
+    file_name = 'session_38cd428e/poke_1310720_steps'
 
     model: Optional[PPO] = None
     #'session_bfdca25a/poke_42532864_steps' #'session_d3033abb/poke_47579136_steps' #'session_a17cc1f5/poke_33546240_steps' #'session_e4bdca71/poke_8945664_steps' #'session_eb21989e/poke_40255488_steps' #'session_80f70ab4/poke_58982400_steps'
@@ -99,7 +100,7 @@ if __name__ == '__main__':
                     env,
                     verbose=1,
                     n_steps=ep_length,
-                    batch_size=256,
+                    batch_size=512,
                     n_epochs=1,
                     gamma=0.999,
                     learning_rate=linear_schedule(0.0005, 0.0002),
@@ -110,7 +111,8 @@ if __name__ == '__main__':
 
     print(model.policy)
     print("Total no. params:")
-    print(sum([multiply(parameter) for parameter in model.policy.parameters()]))
+    print(sum([multiply(parameter)
+               for parameter in model.policy.parameters()]))
 
     for i in range(learn_steps):
         model.learn(total_timesteps=(ep_length) * num_cpu * 1000,

@@ -39,6 +39,7 @@ class RedGymEnv(Env):
         self.early_stopping = config['early_stop']
         self.save_video = config['save_video']
         self.fast_video = config['fast_video']
+        self.full_video = config['full_video'] if 'full_video' in config else config['save_video']
         self.move_list_zoom = config[
             'move_list_zoom'] if 'move_list_zoom' in config else False
         self.video_interval = 256 * self.act_freq
@@ -132,26 +133,28 @@ class RedGymEnv(Env):
                 self.model_frame_writer.close()
             base_dir = self.s_path / Path('rollouts')
             base_dir.mkdir(exist_ok=True)
-            full_name = Path(
-                f'full_reset_{self.reset_count}_id{self.instance_id}'
-            ).with_suffix('.mp4')
             model_name = Path(
                 f'model_reset_{self.reset_count}_id{self.instance_id}'
             ).with_suffix('.mp4')
-            self.full_frame_writer = media.VideoWriter(base_dir / full_name,
-                                                       (144, 160),
-                                                       fps=60)
-            self.full_frame_writer.__enter__()
             self.model_frame_writer = media.VideoWriter(base_dir / model_name,
                                                         self.output_full[:2],
                                                         fps=60)
             self.model_frame_writer.__enter__()
+            if self.full_video:
+                full_name = Path(
+                    f'full_reset_{self.reset_count}_id{self.instance_id}'
+                ).with_suffix('.mp4')
+                self.full_frame_writer = media.VideoWriter(base_dir / full_name,
+                                                       (144, 160),
+                                                       fps=60)
+                self.full_frame_writer.__enter__()
 
         self.levels_satisfied = False
         self.base_explore = 0
         self.max_opponent_level = 0
         self.max_event_rew = 0
         self.max_level_rew = 0
+        self.last_level_sum_for_health = 0
         self.last_health = 1
         self.total_healing_rew = 0
         self.died_count = 0
@@ -261,10 +264,11 @@ class RedGymEnv(Env):
             self.add_video_frame()
 
     def add_video_frame(self):
-        self.full_frame_writer.add_image(
-            self.render(reduce_res=False, update_mem=False))
         self.model_frame_writer.add_image(
             self.render(reduce_res=True, update_mem=False))
+        if self.full_video:
+            self.full_frame_writer.add_image(
+                self.render(reduce_res=False, update_mem=False))
 
     def append_agent_stats(self, action):
         x_pos = self.read_m(0xD362)
@@ -404,7 +408,8 @@ class RedGymEnv(Env):
                     ), self.render(reduce_res=False))
 
         if self.save_video and done:
-            self.full_frame_writer.close()
+            if self.full_frame_writer:
+                self.full_frame_writer.close()
             self.model_frame_writer.close()
 
         if done:
@@ -465,11 +470,14 @@ class RedGymEnv(Env):
         cur_health = self.read_hp_fraction()
         if cur_health > self.last_health:
             if self.last_health > 0:
-                heal_amount = cur_health - self.last_health
-                if heal_amount > 0.5:
-                    print(f'healed: {heal_amount}')
-                    self.save_screenshot('healing')
-                self.total_healing_rew += heal_amount * 4
+                levels_sum = self.get_levels_sum()
+                if self.last_level_sum_for_health == levels_sum:  # Don't count level up as healing
+                    heal_amount = cur_health - self.last_health
+                    if heal_amount > 0.5:
+                        print(f'healed: {heal_amount}')
+                        self.save_screenshot('healing')
+                    self.total_healing_rew += heal_amount * 4
+                self.last_level_sum_for_health = levels_sum
             else:
                 self.died_count += 1
 
