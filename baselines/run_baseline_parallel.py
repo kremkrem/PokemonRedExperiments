@@ -7,8 +7,8 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from argparse_pokemon import *
-from custom_networks import WorseNatureCNN, linear_schedule
-from red_gym_env import RedGymEnv
+from custom_networks import linear_schedule
+from red_gym_env import StackedRedGymEnv
 from torch.nn.parameter import Parameter
 
 
@@ -22,7 +22,7 @@ def make_env(rank, env_conf, seed=0):
     """
 
     def _init():
-        env = RedGymEnv(env_conf)
+        env = StackedRedGymEnv(env_conf)
         env.reset(seed=(seed + rank))
         return env
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         'print_rewards': True,
         'save_video': True,
         'fast_video': True,
-        'full_video': False,
+        'full_video': True,
         'move_list_zoom': False,
         'session_path': Path(sess_path),
         'gb_path': '../PokemonRed.gb',
@@ -80,9 +80,7 @@ if __name__ == '__main__':
                                              name_prefix='poke')
     #env_checker.check_env(env)
     learn_steps = 100
-    #file_name = 'session_e41c9eff/poke_38207488_steps'  #'session_e41c9eff/poke_250871808_steps'
-    #file_name = 'session_4da05e87_main_good/poke_439746560_steps'
-    file_name = 'session_38cd428e/poke_1310720_steps'
+    file_name = 'bogus'
 
     model: Optional[PPO] = None
     #'session_bfdca25a/poke_42532864_steps' #'session_d3033abb/poke_47579136_steps' #'session_a17cc1f5/poke_33546240_steps' #'session_e4bdca71/poke_8945664_steps' #'session_eb21989e/poke_40255488_steps' #'session_80f70ab4/poke_58982400_steps'
@@ -103,11 +101,7 @@ if __name__ == '__main__':
                     batch_size=512,
                     n_epochs=1,
                     gamma=0.999,
-                    learning_rate=linear_schedule(0.0005, 0.0002),
-                    policy_kwargs={
-                        'features_extractor_class': WorseNatureCNN,
-                        'net_arch': []
-                    })
+                    learning_rate=linear_schedule(0.0005, 0.0002))
 
     print(model.policy)
     print("Total no. params:")
@@ -115,5 +109,5 @@ if __name__ == '__main__':
                for parameter in model.policy.parameters()]))
 
     for i in range(learn_steps):
-        model.learn(total_timesteps=(ep_length) * num_cpu * 1000,
+        model.learn(total_timesteps=ep_length * num_cpu * 1000,
                     callback=checkpoint_callback)

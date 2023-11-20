@@ -1,11 +1,11 @@
 import random
 import sys
 import uuid
-from math import floor, sqrt
+from math import floor
 import json
 from pathlib import Path
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from einops import rearrange
@@ -22,13 +22,15 @@ from pyboy.utils import WindowEvent
 
 class RedGymEnv(Env):
 
-    def __init__(self, config=None):
+    def __init__(self,
+                 config: Optional[dict[str, bool | int | str | float | Path]] = None,
+                 output_shape: Tuple[int, int, int] = (36, 40, 3)):
 
         self.debug = config['debug']
         self.s_path = config['session_path']
         self.save_final_state = config['save_final_state']
         self.print_rewards = config['print_rewards']
-        self.vec_dim = 4320  #1000
+        self.vec_dim = np.prod(output_shape)
         self.headless = config['headless']
         self.num_elements = 20000  # max
         self.init_state = config['init_state']
@@ -40,8 +42,6 @@ class RedGymEnv(Env):
         self.save_video = config['save_video']
         self.fast_video = config['fast_video']
         self.full_video = config['full_video'] if 'full_video' in config else config['save_video']
-        self.move_list_zoom = config[
-            'move_list_zoom'] if 'move_list_zoom' in config else False
         self.video_interval = 256 * self.act_freq
         self.downsample_factor = 2
         self.frame_stacks = 3
@@ -76,13 +76,12 @@ class RedGymEnv(Env):
             WindowEvent.RELEASE_BUTTON_A, WindowEvent.RELEASE_BUTTON_B
         ]
 
-        self.output_shape = (36, 40, 3)
+        self.output_shape = output_shape
         self.mem_padding = 1
         self.memory_height = 9
         self.col_steps = 16
         self.output_full = (self.output_shape[0] *
-                            (self.frame_stacks +
-                             (1 if self.move_list_zoom else 0)) + 2 *
+                            self.frame_stacks + 2 *
                             (self.mem_padding + self.memory_height),
                             self.output_shape[1], self.output_shape[2])
 
@@ -175,36 +174,23 @@ class RedGymEnv(Env):
                                   ef_construction=100,
                                   M=16)
 
-    def render(self, reduce_res=True, add_memory=True, update_mem=True):
+    def render(self, reduce_res=True, update_mem=True):
         game_pixels_render = self.screen.screen_ndarray()  # (144, 160, 3)
         if reduce_res:
-            if self.move_list_zoom:
-                text_pixels_render = (
-                    255 * resize(game_pixels_render[-40:-8, 40:144, :],
-                                 self.output_shape)).astype(np.uint8)
             game_pixels_render = (
                 255 * resize(game_pixels_render, self.output_shape)).astype(
                     np.uint8)
             if update_mem:
                 self.recent_frames[0] = game_pixels_render
-            if add_memory:
-                pad = np.zeros(shape=(self.mem_padding, self.output_shape[1],
-                                      3),
-                               dtype=np.uint8)
-                if self.move_list_zoom:
-                    game_pixels_render = np.concatenate(
-                        (self.create_exploration_memory(), pad,
-                         self.create_recent_memory(), pad,
-                         rearrange(self.recent_frames, 'f h w c -> (f h) w c'),
-                         text_pixels_render),
-                        axis=0)
-                else:
-                    game_pixels_render = np.concatenate(
-                        (self.create_exploration_memory(), pad,
-                         self.create_recent_memory(), pad,
-                         rearrange(self.recent_frames,
-                                   'f h w c -> (f h) w c')),
-                        axis=0)
+            pad = np.zeros(shape=(self.mem_padding, self.output_shape[1],
+                                  3),
+                           dtype=np.uint8)
+            game_pixels_render = np.concatenate(
+                (self.create_exploration_memory(), pad,
+                 self.create_recent_memory(), pad,
+                 rearrange(self.recent_frames,
+                           'f h w c -> (f h) w c')),
+                axis=0)
         return game_pixels_render
 
     def step(self, action):
@@ -216,9 +202,7 @@ class RedGymEnv(Env):
         obs_memory = self.render()
 
         # trim off memory from frame for knn index
-        frame_start = 2 * (self.memory_height + self.mem_padding)
-        obs_flat = obs_memory[frame_start:frame_start + self.output_shape[0],
-                              ...].flatten().astype(np.float32)
+        obs_flat = self.observation_to_knn_index(obs_memory)
 
         self.update_frame_knn_index(obs_flat)
 
@@ -241,6 +225,10 @@ class RedGymEnv(Env):
         self.step_count += 1
 
         return obs_memory, new_reward*0.1, False, step_limit_reached or (self.total_reward + 1 < self.step_count * 0.0005), {}
+
+    def observation_to_knn_index(self, obs) -> np.array:
+        frame_start = 2 * (self.memory_height + self.mem_padding)
+        return obs[frame_start:frame_start + self.output_shape[0], ...].flatten().astype(np.float32)
 
     def run_action_on_emulator(self, action):
         # press button then release after some steps
@@ -582,3 +570,28 @@ class RedGymEnv(Env):
         return (100 * 100 * self.read_bcd(self.read_m(0xD347)) +
                 100 * self.read_bcd(self.read_m(0xD348)) +
                 self.read_bcd(self.read_m(0xD349)))
+
+
+class StackedRedGymEnv(RedGymEnv):
+
+    def __init__(self, config: Optional[dict[str, bool | int | str | float | Path]] = None):
+        super().__init__(config, output_shape=(72, 80, 3))
+        self.output_full = (self.output_shape[0], self.output_shape[1], self.frame_stacks)
+        self.knn_index_shape = (36, 40)
+        self.vec_dim = np.prod(self.knn_index_shape)
+        self.observation_space = spaces.Box(low=0, high=255, shape=self.output_full, dtype=np.uint8)
+        self.reset()
+
+    def render(self, reduce_res=True, update_mem=True):
+        game_pixels_render = self.screen.screen_ndarray()  # (144, 160, 3)
+        if reduce_res:
+            game_pixels_render = (
+                    255 * resize(game_pixels_render, self.output_shape)).astype(
+                np.uint8)
+            if update_mem:
+                self.recent_frames[0] = game_pixels_render
+            game_pixels_render = rearrange(self.recent_frames.mean(axis=3).astype(np.uint8), 'f h w -> h w f')
+        return game_pixels_render
+
+    def observation_to_knn_index(self, obs) -> np.array:
+        return resize(obs[:, :, 0], self.knn_index_shape).flatten().astype(np.float32)
