@@ -7,6 +7,7 @@ from stable_baselines3.common.utils import set_random_seed
 
 from red_gym_env import RedGymEnv
 from red_gym_env import RedGymEnvConfig
+from visualize_predictions import ModelVisualization
 
 
 def make_env(env_conf: RedGymEnvConfig, seed=0) -> Callable[[], RedGymEnv]:
@@ -41,6 +42,9 @@ if __name__ == '__main__':
     
     print('\nloading checkpoint')
     model = PPO.load(file_name, env=env, custom_objects={'lr_schedule': 0, 'clip_range': 0})
+
+    cnt = 0
+    vis = ModelVisualization(model.policy)
         
     #keyboard.on_press_key("M", toggle_agent)
     obs, info = env.reset()
@@ -53,8 +57,14 @@ if __name__ == '__main__':
             agent_enabled = False
         if agent_enabled:
             action, _states = model.predict(obs, deterministic=False)
+        last_obs = obs
         obs, rewards, terminated, truncated, info = env.step(action)
         env.render()
+        if cnt % 50 == 0:
+            vis.explain_and_save_pic(last_obs, Path(file_name).parent / f'expl_{cnt}.png')
+            print("Frame #" + str(cnt) + ",", action, ModelVisualization.IDX_TO_CLASS[action], vis.batch_predict(last_obs))
+
+        cnt += 1
         if truncated:
             break
     env.close()
